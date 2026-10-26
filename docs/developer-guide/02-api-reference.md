@@ -1274,6 +1274,16 @@ Base path: `/api/v1/conditions`
 - **Authentication**: Yes
 - **Success Response** (200): Condition object with relations
 
+#### Get Condition Context
+
+`GET /conditions/{condition_id}/context`
+
+- **Purpose**: The condition with every record linked to it in one response, for AI agents (see `mcp_server/README.md`)
+- **Authentication**: Yes (owner or a patient share with view permission)
+- **Query Parameters**:
+  - `format` (string, default: `json`): `json` or `markdown`
+- **Success Response** (200): `condition`, `patient` (age, gender, blood type, height, weight; no name or address), `medications`, `treatments` (with `linked_medications`/`linked_equipment`), `procedures`, `lab_results` (with `test_components`), `encounters`, `symptoms` (with `occurrences`), `injuries`, `files` (metadata only), `patient_background` (active allergies, active medications, latest vitals) and `meta.counts`. Records use the custom report serialization; links carry `link_relevance_note`/`link_purpose`. With `format=markdown`, a compact `text/markdown` rendering.
+
 #### Update Condition
 
 `PUT /conditions/{condition_id}`
