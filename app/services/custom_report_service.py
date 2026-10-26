@@ -1161,6 +1161,18 @@ class CustomReportService:
             "matching_ids": matching_ids,
         }
 
+    async def get_records_as_dicts(
+        self, patient_id: int, category: str, record_ids: List[int]
+    ) -> List[Dict[str, Any]]:
+        """Serialize the given records of a category exactly as reports do.
+
+        Unfiltered by date or tags. Ids that belong to another patient are
+        silently dropped by the patient-scoped selection query.
+        """
+        if not record_ids:
+            return []
+        return await self._get_selected_records(patient_id, category, record_ids)
+
     async def _get_selected_records(
         self,
         patient_id: int,

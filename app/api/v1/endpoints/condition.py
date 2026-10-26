@@ -1,6 +1,7 @@
-from typing import Any, List, Optional
+from typing import Any, List, Literal, Optional
 
 from fastapi import APIRouter, Depends, Query, Request
+from fastapi.responses import PlainTextResponse
 from sqlalchemy.orm import Session
 
 from app.api import deps
@@ -38,6 +39,10 @@ from app.schemas.condition import (
     ConditionUpdate,
     ConditionWithRelations,
     MedicationConditionWithDetails,
+)
+from app.services.condition_context_service import (
+    ConditionContextService,
+    render_markdown,
 )
 
 router = APIRouter()
@@ -649,6 +654,58 @@ def get_condition_medications_with_details(
         )
 
         return result
+
+
+@router.get("/{condition_id}/context")
+async def get_condition_context(
+    *,
+    condition_id: int,
+    request: Request,
+    output_format: Literal["json", "markdown"] = Query("json", alias="format"),
+    db: Session = Depends(deps.get_db),
+    current_user_patient_id: int = Depends(deps.get_current_user_patient_id),
+    current_user_id: int = Depends(deps.get_current_user_id),
+    current_user: User = Depends(deps.get_current_user),
+) -> Any:
+    """Get a condition with every record linked to it, in one response.
+
+    Intended for AI consultants and other readers that need the whole picture.
+    """
+    with handle_database_errors(request=request):
+        db_condition = condition.get(db, id=condition_id)
+        if not db_condition:
+            raise NotFoundException(
+                resource="Condition",
+                message=f"Condition with ID {condition_id} not found",
+                request=request,
+            )
+
+        verify_patient_ownership(
+            db_condition,
+            current_user_patient_id,
+            "condition",
+            db=db,
+            current_user=current_user,
+        )
+
+        context = await ConditionContextService(db).build(db_condition)
+
+        log_data_access(
+            logger,
+            request,
+            current_user_id,
+            "read",
+            "ConditionContext",
+            record_id=condition_id,
+            patient_id=db_condition.patient_id,
+            format=output_format,
+        )
+
+        if output_format == "markdown":
+            return PlainTextResponse(
+                render_markdown(context), media_type="text/markdown"
+            )
+        return context
 
 
 # Generic condition routes (must come after specific medication routes)
