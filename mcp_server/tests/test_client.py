@@ -1,5 +1,6 @@
 import httpx
 import pytest
+from mcp.server.fastmcp.exceptions import ToolError
 
 from medikeep_mcp import server
 from medikeep_mcp.client import MediKeepClient, MediKeepError, Settings
@@ -103,9 +104,10 @@ def test_settings_report_missing_env(monkeypatch):
         Settings.from_env()
 
 
-async def test_tools_return_errors_as_text(client, monkeypatch):
+async def test_tools_raise_tool_errors(client, monkeypatch):
     monkeypatch.setattr(server, "_client", client)
-    assert (await server.get_condition_context(8)).startswith("Error: Access denied")
+    with pytest.raises(ToolError, match="Access denied"):
+        await server.get_condition_context(8)
 
 
 async def test_list_conditions_tool_is_compact(client, monkeypatch):

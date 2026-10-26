@@ -69,6 +69,11 @@ Other clients take the same command and environment in their MCP config:
 Set `MEDIKEEP_VERIFY_SSL=false` only for a local instance with a self-signed
 certificate.
 
+The server honours `HTTP_PROXY`/`HTTPS_PROXY`. If those are set and MediKeep
+runs locally, add its host to `NO_PROXY` (for example
+`"NO_PROXY": "127.0.0.1,localhost"` in `env`), or requests go through the proxy
+and fail with 502.
+
 ## Privacy
 
 Whatever the tools return is sent to the model provider your agent uses. For

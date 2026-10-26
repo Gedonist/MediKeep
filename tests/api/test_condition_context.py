@@ -25,6 +25,7 @@ from app.models.models import (
     Injury,
     InjuryCondition,
     LabResult,
+    LabTestComponent,
     LabResultCondition,
     Medication,
     PatientShare,
@@ -196,6 +197,31 @@ class TestConditionContext:
         assert "Metformin" in text
         assert "Foreign" not in text
         assert "Penicillin" in text
+
+    def test_markdown_is_compact_and_keeps_list_structure(
+        self, client, db_session, owner, linked_condition
+    ):
+        cond_id = linked_condition["condition"].id
+        lab_id = db_session.query(LabResultCondition.lab_result_id).filter(
+            LabResultCondition.condition_id == cond_id
+        ).scalar()
+        db_session.add(LabTestComponent(lab_result_id=lab_id, test_name="HbA1c",
+                                        value=7.1, unit="%", result_type="quantitative"))
+        encounter = db_session.query(Encounter).filter(
+            Encounter.condition_id == cond_id
+        ).one()
+        encounter.notes = "First line\nsecond line"
+        db_session.commit()
+
+        text = client.get(_url(cond_id, "markdown"), headers=owner["headers"]).text
+        assert "test_name: HbA1c; result_type: quantitative; value: 7.1; unit: %" in text
+        assert "None" not in text
+        assert "created_at" not in text
+        assert "notes: First line second line" in text
+
+        components = client.get(_url(cond_id), headers=owner["headers"]).json()[
+            "lab_results"][0]["test_components"]
+        assert "test_code" not in components[0]
 
     def test_invalid_format_is_rejected(self, client, owner, linked_condition):
         response = client.get(_url(linked_condition["condition"].id, "xml"),
