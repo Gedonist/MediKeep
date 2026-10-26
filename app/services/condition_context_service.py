@@ -49,11 +49,16 @@ LINKED_SECTIONS = {
 
 
 def _clean(record: Dict[str, Any]) -> Dict[str, Any]:
-    return {
-        key: value
-        for key, value in record.items()
-        if key not in OMITTED_FIELDS and value not in (None, "", [])
-    }
+    """Drop noise fields and empty values, also in nested records such as
+    lab test components and symptom occurrences."""
+    cleaned = {}
+    for key, value in record.items():
+        if key in OMITTED_FIELDS or value in (None, "", []):
+            continue
+        if isinstance(value, list) and all(isinstance(v, dict) for v in value):
+            value = [_clean(v) for v in value]
+        cleaned[key] = value
+    return cleaned
 
 
 def _age(birth_date: Optional[date], today: date) -> Optional[int]:
@@ -325,7 +330,8 @@ def _format_value(value: Any) -> str:
         return value.isoformat()
     if isinstance(value, list):
         return ", ".join(_format_value(v) for v in value)
-    return str(value)
+    # Multi-line notes would break out of their list item
+    return " ".join(str(value).split())
 
 
 def _fields_line(record: Dict[str, Any], skip: set) -> str:
@@ -363,7 +369,7 @@ def render_markdown(context: Dict[str, Any]) -> str:
             )
             for occurrence in occurrences[:MARKDOWN_OCCURRENCES_LIMIT]:
                 lines.append(
-                    f"  - occurrence: {_fields_line(_clean(occurrence), {'id', 'symptom_id'})}"
+                    f"  - occurrence: {_fields_line(occurrence, {'id', 'symptom_id'})}"
                 )
             for nested in ("linked_medications", "linked_equipment"):
                 for item in record.get(nested, []):

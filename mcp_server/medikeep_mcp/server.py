@@ -10,6 +10,7 @@ import json
 from typing import Any, Literal, Optional
 
 from mcp.server.fastmcp import FastMCP
+from mcp.server.fastmcp.exceptions import ToolError
 
 from medikeep_mcp.client import MediKeepClient, MediKeepError, Settings
 
@@ -41,10 +42,11 @@ def _patient_line(patient: dict) -> dict:
 
 
 async def _call(coro) -> str:
+    """Run a tool body; a MediKeep refusal becomes a tool error (isError)."""
     try:
         return await coro
     except MediKeepError as error:
-        return f"Error: {error}"
+        raise ToolError(str(error)) from error
 
 
 @mcp.tool()
